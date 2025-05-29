@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canvas Calculator</title>
+  <style>
+    body {
+      background-color: #fff;
+      color: #000;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark {
+      background-color: #121212;
+      color: #fff;
+    }
+    canvas {
+      border: 2px solid #000;
+      display: block;
+      margin: 20px auto;
+      background-color: #eee;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    body.dark canvas {
+      background-color: #1e1e1e;
+      border-color: #444;
+    }
+    #history {
+      max-width: 310px;
+      margin: 0 auto 20px;
+      background: #eee;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 14px;
+      text-align: left;
+      color: #000;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark #history {
+      background: #1e1e1e;
+      color: #fff;
+    }
+    #history h3 {
+      margin-top: 0;
+    }
+    #modeToggle {
+      margin: 10px auto;
+      display: block;
+      cursor: pointer;
+      padding: 6px 12px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #000;
+      background-color: #d3d3d3;
+      color: #000;
+      user-select: none;
+      transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+    }
+    body.dark #modeToggle {
+      border-color: #888;
+      background-color: #333;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <button id="modeToggle">Switch to Dark Mode</button>
+  <h2>Canvas Calculator</h2>
+  <div id="history">
+    <h3>History</h3>
+    <ul id="historyList"></ul>
+  </div>
+  <canvas id="calcCanvas" width="310" height="500"></canvas>
+  <script>
+    const canvas = document.getElementById('calcCanvas');
+    const ctx = canvas.getContext('2d');
+    const btns = [
+      "(", ")", "AC", "C",
+      "7", "8", "9", "/",
+      "4", "5", "6", "*",
+      "1", "2", "3", "-",
+      "0", ".", "=", "+"
+    ];
+    const btnSize = 70;
+    let input = "";
+    let errorTimeout = null;
+    let activeBtnIndex = -1;
+    const historyList = document.getElementById("historyList");
+    const modeToggle = document.getElementById("modeToggle");
+
+    function drawCalc() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Display background and text color based on body class
+      if (document.body.classList.contains('dark')) {
+        ctx.fillStyle = '#222';
+        ctx.fillRect(10, 10, 280, 60);
+        ctx.fillStyle = '#fff';
+      } else {
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(10, 10, 280, 60);
+        ctx.fillStyle = '#000';
+      }
+      ctx.font = "24px Arial";
+      ctx.fillText(input, 20, 50);
+
+      // Buttons
+      for (let i = 0; i < btns.length; i++) {
+        const x = (i % 4) * (btnSize + 5) + 10;
+        const y = Math.floor(i / 4) * (btnSize + 5) + 80;
+
+        if (activeBtnIndex === i) {
+          ctx.fillStyle = document.body.classList.contains('dark') ? '#555' : '#aaa';
+        } else {
+          ctx.fillStyle = document.body.classList.contains('dark') ? '#333' : '#d3d3d3';
+        }
+        ctx.fillRect(x, y, btnSize, btnSize);
+
+        ctx.strokeStyle = document.body.classList.contains('dark') ? '#888' : '#000';
+        ctx.strokeRect(x, y, btnSize, btnSize);
+
+        ctx.fillStyle = document.body.classList.contains('dark') ? '#fff' : '#000';
+        ctx.font = "20px Arial";
+        ctx.fillText(btns[i], x + 20, y + 40);
+      }
+    }
+
+    function getButton(x, y) {
+      for (let i = 0; i < btns.length; i++) {
+        const bx = (i % 4) * (btnSize + 5) + 10;
+        const by = Math.floor(i / 4) * (btnSize + 5) + 80;
+        if (x >= bx && x <= bx + btnSize && y >= by && y <= by + btnSize) {
+          return i;
+        }
+      }
+      return null;
+    }
+
+    function showError(message) {
+      input = message;
+      drawCalc();
+      if (errorTimeout) clearTimeout(errorTimeout);
+      errorTimeout = setTimeout(() => {
+        input = "";
+        drawCalc();
+      }, 1500);
+    }
+
+    function addToHistory(expression, result) {
+      const li = document.createElement("li");
+      li.textContent = `${expression} = ${result}`;
+      historyList.insertBefore(li, historyList.firstChild);
+    }
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const index = getButton(x, y);
+      if (index !== null) {
+        const key = btns[index];
+        activeBtnIndex = index;
+        drawCalc();
+        setTimeout(() => {
+          activeBtnIndex = -1;
+          drawCalc();
+        }, 150);
+
+        if (key === "AC") {
+          input = "";
+        } else if (key === "C") {
+          input = input.slice(0, -1);
+        } else if (key === "=") {
+          try {
+            const result = eval(input);
+            if (result === Infinity || result === -Infinity) {
+              showError("Error: Divided by 0");
+              return;
+            } else {
+              addToHistory(input, result);
+              input = result.toString();
+            }
+          } catch {
+            showError("Error");
+            return;
+          }
+        } else {
+          input += key;
+        }
+        drawCalc();
+      }
+    });
+
+// On page load, apply saved theme from localStorage
+if (localStorage.getItem('darkMode') === 'enabled') {
+  document.body.classList.add('dark');
+  modeToggle.textContent = "Switch to Light Mode";
+} else {
+  modeToggle.textContent = "Switch to Dark Mode";
+}
+
+modeToggle.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+  if (document.body.classList.contains('dark')) {
+    modeToggle.textContent = "Switch to Light Mode";
+    localStorage.setItem('darkMode', 'enabled');
+  } else {
+    modeToggle.textContent = "Switch to Dark Mode";
+    localStorage.setItem('darkMode', 'disabled');
+  }
+  drawCalc();
+});
+
+
+    drawCalc();
+  </script>
+</body>
+</html>
